@@ -1,5 +1,6 @@
 import React, {
   createContext,
+  useCallback,
   useEffect,
   useState,
 } from "react";
@@ -13,11 +14,23 @@ import axios from "axios";
 import { toast } from "react-toastify";
 
 
+// ==========================================
+// CREATE CONTEXT
+// ==========================================
+
 export const AppContext = createContext();
 
 
-const backendUrl = import.meta.env.VITE_BACKEND_URL;
+// ==========================================
+// BACKEND URL
+// ==========================================
 
+const backendUrl = import.meta.env.VITE_BACKEND_URL?.replace(/\/$/, "");
+
+
+// ==========================================
+// CONTEXT PROVIDER
+// ==========================================
 
 export const AppContexProvider = ({ children }) => {
 
@@ -102,30 +115,56 @@ export const AppContexProvider = ({ children }) => {
 
 
   // ==========================================
+  // CHECK BACKEND URL
+  // ==========================================
+
+  useEffect(() => {
+
+    if (!backendUrl) {
+
+      console.error(
+        "❌ VITE_BACKEND_URL is missing"
+      );
+
+      return;
+
+    }
+
+    console.log(
+      "✅ Backend URL:",
+      backendUrl
+    );
+
+  }, []);
+
+
+  // ==========================================
   // FETCH JOBS
   // ==========================================
 
-  const fetchJobs = async () => {
+  const fetchJobs = useCallback(async () => {
+
+    if (!backendUrl) {
+
+      console.error(
+        "❌ VITE_BACKEND_URL is missing"
+      );
+
+      setJobsLoading(false);
+
+      return;
+
+    }
 
     try {
 
-      if (!backendUrl) {
+      setJobsLoading(true);
 
-        console.log(
-          "❌ VITE_BACKEND_URL is missing"
+
+      const { data } =
+        await axios.get(
+          `${backendUrl}/api/jobs`
         );
-
-        toast.error(
-          "Backend URL is not configured"
-        );
-
-        return;
-      }
-
-
-      const { data } = await axios.get(
-        `${backendUrl}/api/jobs`
-      );
 
 
       console.log(
@@ -151,8 +190,8 @@ export const AppContexProvider = ({ children }) => {
 
     } catch (error) {
 
-      console.log(
-        "Jobs Error:",
+      console.error(
+        "❌ JOBS ERROR:",
         error.response?.data ||
         error.message
       );
@@ -160,7 +199,6 @@ export const AppContexProvider = ({ children }) => {
 
       toast.error(
         error.response?.data?.message ||
-        error.message ||
         "Failed to load jobs"
       );
 
@@ -170,36 +208,20 @@ export const AppContexProvider = ({ children }) => {
 
     }
 
-  };
+  }, []);
 
 
   // ==========================================
   // FETCH USER DATA
   // ==========================================
 
-  const fetchUserData = async () => {
+  const fetchUserData =
+    useCallback(async () => {
 
-    try {
+      if (!backendUrl) {
 
-      console.log(
-        "🔄 Getting Clerk token for user data..."
-      );
-
-
-      const token =
-        await getToken();
-
-
-      console.log(
-        "CLERK TOKEN EXISTS:",
-        !!token
-      );
-
-
-      if (!token) {
-
-        console.log(
-          "❌ TOKEN IS NULL"
+        console.error(
+          "❌ VITE_BACKEND_URL is missing"
         );
 
         return;
@@ -207,53 +229,92 @@ export const AppContexProvider = ({ children }) => {
       }
 
 
-      const { data } =
-        await axios.get(
+      if (!isLoaded || !user) {
 
-          `${backendUrl}/api/users/user`,
+        return;
 
-          {
-            headers: {
-              Authorization:
-                `Bearer ${token}`,
-            },
-          }
-
-        );
+      }
 
 
-      console.log(
-        "USER API RESPONSE:",
-        data
-      );
-
-
-      if (data.success) {
-
-        setUserData(
-          data.user
-        );
-
-      } else {
+      try {
 
         console.log(
-          "❌ USER API FAILED:",
-          data.message
+          "🔄 Getting Clerk token for user data..."
+        );
+
+
+        const token =
+          await getToken();
+
+
+        console.log(
+          "CLERK TOKEN EXISTS:",
+          !!token
+        );
+
+
+        if (!token) {
+
+          console.error(
+            "❌ Clerk token is null"
+          );
+
+          return;
+
+        }
+
+
+        const { data } =
+          await axios.get(
+
+            `${backendUrl}/api/users/user`,
+
+            {
+              headers: {
+                Authorization:
+                  `Bearer ${token}`,
+              },
+            }
+
+          );
+
+
+        console.log(
+          "USER API RESPONSE:",
+          data
+        );
+
+
+        if (data.success) {
+
+          setUserData(
+            data.user
+          );
+
+        } else {
+
+          console.error(
+            "❌ USER API FAILED:",
+            data.message
+          );
+
+        }
+
+      } catch (error) {
+
+        console.error(
+          "❌ USER DATA ERROR:",
+          error.response?.data ||
+          error.message
         );
 
       }
 
-    } catch (error) {
-
-      console.log(
-        "❌ USER DATA ERROR:",
-        error.response?.data ||
-        error.message
-      );
-
-    }
-
-  };
+    }, [
+      getToken,
+      isLoaded,
+      user,
+    ]);
 
 
   // ==========================================
@@ -261,7 +322,25 @@ export const AppContexProvider = ({ children }) => {
   // ==========================================
 
   const fetchUserApplications =
-    async () => {
+    useCallback(async () => {
+
+      if (!backendUrl) {
+
+        console.error(
+          "❌ VITE_BACKEND_URL is missing"
+        );
+
+        return;
+
+      }
+
+
+      if (!isLoaded || !user) {
+
+        return;
+
+      }
+
 
       try {
 
@@ -282,8 +361,8 @@ export const AppContexProvider = ({ children }) => {
 
         if (!token) {
 
-          console.log(
-            "❌ TOKEN IS NULL"
+          console.error(
+            "❌ Clerk token is null"
           );
 
           return;
@@ -320,7 +399,7 @@ export const AppContexProvider = ({ children }) => {
 
         } else {
 
-          console.log(
+          console.error(
             "❌ APPLICATIONS API FAILED:",
             data.message
           );
@@ -329,7 +408,7 @@ export const AppContexProvider = ({ children }) => {
 
       } catch (error) {
 
-        console.log(
+        console.error(
           "❌ APPLICATIONS ERROR:",
           error.response?.data ||
           error.message
@@ -337,7 +416,11 @@ export const AppContexProvider = ({ children }) => {
 
       }
 
-    };
+    }, [
+      getToken,
+      isLoaded,
+      user,
+    ]);
 
 
   // ==========================================
@@ -345,16 +428,27 @@ export const AppContexProvider = ({ children }) => {
   // ==========================================
 
   const fetchCompanyData =
-    async () => {
+    useCallback(async () => {
+
+      if (!backendUrl) {
+
+        console.error(
+          "❌ VITE_BACKEND_URL is missing"
+        );
+
+        return;
+
+      }
+
+
+      if (!companyToken) {
+
+        return;
+
+      }
+
 
       try {
-
-        if (!companyToken) {
-
-          return;
-
-        }
-
 
         const { data } =
           await axios.get(
@@ -402,7 +496,7 @@ export const AppContexProvider = ({ children }) => {
 
       } catch (error) {
 
-        console.log(
+        console.error(
           "❌ COMPANY DATA ERROR:",
           error.response?.data ||
           error.message
@@ -410,7 +504,9 @@ export const AppContexProvider = ({ children }) => {
 
       }
 
-    };
+    }, [
+      companyToken,
+    ]);
 
 
   // ==========================================
@@ -436,7 +532,9 @@ export const AppContexProvider = ({ children }) => {
 
     }
 
-  }, []);
+  }, [
+    fetchJobs,
+  ]);
 
 
   // ==========================================
@@ -457,7 +555,10 @@ export const AppContexProvider = ({ children }) => {
 
     }
 
-  }, [companyToken]);
+  }, [
+    companyToken,
+    fetchCompanyData,
+  ]);
 
 
   // ==========================================
@@ -476,25 +577,26 @@ export const AppContexProvider = ({ children }) => {
 
 
     if (
-      isLoaded &&
-      user
+      !isLoaded
     ) {
+
+      return;
+
+    }
+
+
+    if (user) {
 
       fetchUserData();
 
       fetchUserApplications();
 
-    }
-
-
-    if (
-      isLoaded &&
-      !user
-    ) {
+    } else {
 
       setUserData(
         null
       );
+
 
       setUserApplications(
         []
@@ -504,7 +606,9 @@ export const AppContexProvider = ({ children }) => {
 
   }, [
     user,
-    isLoaded
+    isLoaded,
+    fetchUserData,
+    fetchUserApplications,
   ]);
 
 
