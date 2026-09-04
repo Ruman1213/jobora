@@ -1,117 +1,323 @@
 import { Webhook } from "svix";
 import User from "../models/User.js";
 
-export const clerkWebhooks = async (req, res) => {
+
+// ========================================
+// CLERK WEBHOOK CONTROLLER
+// ========================================
+
+export const clerkWebhooks = async (
+  req,
+  res
+) => {
   try {
-    console.log("Webhook received");
 
-    const whook = new Webhook(
-      process.env.CLERK_WEBHOOK_SECRET
+    console.log(
+      "================================"
     );
 
-    const payload = whook.verify(
-      JSON.stringify(req.body),
-      {
-        "svix-id": req.headers["svix-id"],
-        "svix-timestamp": req.headers["svix-timestamp"],
-        "svix-signature": req.headers["svix-signature"],
-      }
+    console.log(
+      "CLERK WEBHOOK RECEIVED"
     );
 
-    const { data, type } = payload;
+    console.log(
+      "================================"
+    );
 
-    console.log("Webhook type:", type);
 
-    switch (type) {
-      case "user.created": {
-        const userData = {
-          _id: data.id,
-          email:
-            data.email_addresses?.[0]?.email_address || "",
-          name:
-            `${data.first_name || ""} ${
-              data.last_name || ""
-            }`.trim(),
-          image: data.image_url || "",
-          resume: "",
-        };
+    // ========================================
+    // GET SVIX HEADERS
+    // ========================================
 
-        await User.findByIdAndUpdate(
+    const svixId =
+      req.headers["svix-id"];
+
+    const svixTimestamp =
+      req.headers["svix-timestamp"];
+
+    const svixSignature =
+      req.headers["svix-signature"];
+
+
+    // ========================================
+    // CHECK HEADERS
+    // ========================================
+
+    if (
+      !svixId ||
+      !svixTimestamp ||
+      !svixSignature
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Missing Svix headers",
+      });
+    }
+
+
+    // ========================================
+    // CHECK WEBHOOK SECRET
+    // ========================================
+
+    if (
+      !process.env
+        .CLERK_WEBHOOK_SECRET
+    ) {
+      console.log(
+        "CLERK_WEBHOOK_SECRET is missing"
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "Webhook secret is not configured",
+      });
+    }
+
+
+    // ========================================
+    // CREATE WEBHOOK INSTANCE
+    // ========================================
+
+    const whook =
+      new Webhook(
+        process.env
+          .CLERK_WEBHOOK_SECRET
+      );
+
+
+    // ========================================
+    // VERIFY WEBHOOK
+    //
+    // req.body is RAW BUFFER
+    // ========================================
+
+    const payload =
+      whook.verify(
+        req.body.toString(),
+        {
+          "svix-id":
+            svixId,
+
+          "svix-timestamp":
+            svixTimestamp,
+
+          "svix-signature":
+            svixSignature,
+        }
+      );
+
+
+    // ========================================
+    // GET EVENT DATA
+    // ========================================
+
+    const {
+      data,
+      type,
+    } = payload;
+
+
+    console.log(
+      "WEBHOOK TYPE:",
+      type
+    );
+
+    console.log(
+      "CLERK USER ID:",
+      data.id
+    );
+
+
+    // ========================================
+    // USER CREATED
+    // ========================================
+
+    if (
+      type === "user.created"
+    ) {
+
+      const userData = {
+
+        _id:
           data.id,
+
+        email:
+          data.email_addresses?.[0]
+            ?.email_address || "",
+
+        name:
+          `${data.first_name || ""} ${
+            data.last_name || ""
+          }`.trim(),
+
+        image:
+          data.image_url || "",
+
+        resume:
+          "",
+      };
+
+
+      console.log(
+        "CREATING USER:",
+        userData
+      );
+
+
+      const user =
+        await User.findByIdAndUpdate(
+
+          data.id,
+
           userData,
+
+          {
+            new: true,
+            upsert: true,
+            setDefaultsOnInsert: true,
+          }
+
+        );
+
+
+      console.log(
+        "USER SAVED SUCCESSFULLY:"
+      );
+
+      console.log(user);
+
+    }
+
+
+    // ========================================
+    // USER UPDATED
+    // ========================================
+
+    else if (
+      type === "user.updated"
+    ) {
+
+      const user =
+        await User.findByIdAndUpdate(
+
+          data.id,
+
+          {
+
+            email:
+              data.email_addresses?.[0]
+                ?.email_address || "",
+
+            name:
+              `${
+                data.first_name || ""
+              } ${
+                data.last_name || ""
+              }`.trim(),
+
+            image:
+              data.image_url || "",
+
+          },
+
           {
             new: true,
             upsert: true,
           }
+
         );
 
-        console.log(
-          "User stored successfully:",
-          data.id
-        );
 
-        break;
-      }
+      console.log(
+        "USER UPDATED:",
+        user
+      );
 
-      case "user.updated": {
-        await User.findByIdAndUpdate(
-          data.id,
-          {
-            email:
-              data.email_addresses?.[0]?.email_address || "",
-            name:
-              `${data.first_name || ""} ${
-                data.last_name || ""
-              }`.trim(),
-            image: data.image_url || "",
-          },
-          {
-            new: true,
-          }
-        );
-
-        console.log(
-          "User updated successfully:",
-          data.id
-        );
-
-        break;
-      }
-
-      case "user.deleted": {
-        if (data.id) {
-          await User.findByIdAndDelete(data.id);
-
-          console.log(
-            "User deleted successfully:",
-            data.id
-          );
-        }
-
-        break;
-      }
-
-      default:
-        console.log(
-          "Unhandled webhook type:",
-          type
-        );
     }
 
+
+    // ========================================
+    // USER DELETED
+    // ========================================
+
+    else if (
+      type === "user.deleted"
+    ) {
+
+      if (data.id) {
+
+        await User.findByIdAndDelete(
+          data.id
+        );
+
+
+        console.log(
+          "USER DELETED:",
+          data.id
+        );
+
+      }
+
+    }
+
+
+    // ========================================
+    // OTHER EVENTS
+    // ========================================
+
+    else {
+
+      console.log(
+        "UNHANDLED EVENT:",
+        type
+      );
+
+    }
+
+
+    // ========================================
+    // SUCCESS RESPONSE
+    // ========================================
+
     return res.status(200).json({
+
       success: true,
-      message: "Webhook processed successfully",
+
+      message:
+        "Webhook processed successfully",
+
     });
 
-  } catch (error) {
+  }
+
+  catch (error) {
+
     console.error(
-      "Webhook Error:",
-      error
+      "================================"
     );
 
+    console.error(
+      "WEBHOOK ERROR:"
+    );
+
+    console.error(error);
+
+    console.error(
+      "================================"
+    );
+
+
     return res.status(400).json({
+
       success: false,
-      message: error.message,
+
+      message:
+        error.message,
+
     });
+
   }
+
 };

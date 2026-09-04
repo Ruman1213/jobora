@@ -83,7 +83,6 @@ const Hero = () => {
           <img className="h-6" src={assets.adobe_logo} alt="Adobe" />
           <img className="h-6" src={assets.samsung_logo} alt="Samsung" />
           <img className="h-6" src={assets.walmart_logo} alt="Walmart" />
-          <img className="h-6" src={assets.salesforce_logo} alt="Salesforce" />
         </div>
       </div>
     </div>

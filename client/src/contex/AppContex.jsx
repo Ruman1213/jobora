@@ -10,42 +10,57 @@ import {
 } from "@clerk/clerk-react";
 
 import axios from "axios";
-
 import { toast } from "react-toastify";
 
 
-export const AppContext =
-  createContext();
+export const AppContext = createContext();
 
 
-const backendUrl =
-  import.meta.env.VITE_BACKEND_URL;
+const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
 
-export const AppContexProvider = ({
-  children,
-}) => {
+export const AppContexProvider = ({ children }) => {
 
-  const { user, isLoaded } =
-    useUser();
+  // ==========================================
+  // CLERK
+  // ==========================================
 
-  const { getToken } =
-    useAuth();
+  const { user, isLoaded } = useUser();
+
+  const { getToken } = useAuth();
 
 
-  const [jobs, setJobs] =
-    useState([]);
+  // ==========================================
+  // JOBS
+  // ==========================================
+
+  const [jobs, setJobs] = useState([]);
 
   const [jobsLoading, setJobsLoading] =
     useState(true);
 
+
+  // ==========================================
+  // USER DATA
+  // ==========================================
+
   const [userData, setUserData] =
     useState(null);
+
+
+  // ==========================================
+  // USER APPLICATIONS
+  // ==========================================
 
   const [
     userApplications,
     setUserApplications,
   ] = useState([]);
+
+
+  // ==========================================
+  // SEARCH FILTER
+  // ==========================================
 
   const [
     searchFilter,
@@ -60,10 +75,20 @@ export const AppContexProvider = ({
     setIsSearched,
   ] = useState(false);
 
+
+  // ==========================================
+  // RECRUITER LOGIN
+  // ==========================================
+
   const [
     showRecruiterLogin,
     setShowRecruiterLogin,
   ] = useState(false);
+
+
+  // ==========================================
+  // COMPANY AUTH
+  // ==========================================
 
   const [
     companyToken,
@@ -76,192 +101,477 @@ export const AppContexProvider = ({
   ] = useState(null);
 
 
+  // ==========================================
+  // FETCH JOBS
+  // ==========================================
+
   const fetchJobs = async () => {
+
     try {
+
       if (!backendUrl) {
-        toast.error("Backend URL is not configured");
+
+        console.log(
+          "❌ VITE_BACKEND_URL is missing"
+        );
+
+        toast.error(
+          "Backend URL is not configured"
+        );
+
         return;
       }
+
 
       const { data } = await axios.get(
         `${backendUrl}/api/jobs`
       );
 
+
+      console.log(
+        "JOBS API RESPONSE:",
+        data
+      );
+
+
       if (data.success) {
-        setJobs(data.jobs || []);
+
+        setJobs(
+          data.jobs || []
+        );
+
       } else {
-        toast.error(data.message || "Failed to load jobs");
+
+        toast.error(
+          data.message ||
+          "Failed to load jobs"
+        );
+
       }
+
     } catch (error) {
+
+      console.log(
+        "Jobs Error:",
+        error.response?.data ||
+        error.message
+      );
+
+
       toast.error(
         error.response?.data?.message ||
         error.message ||
         "Failed to load jobs"
       );
+
     } finally {
+
       setJobsLoading(false);
+
     }
+
   };
 
+
+  // ==========================================
+  // FETCH USER DATA
+  // ==========================================
 
   const fetchUserData = async () => {
+
     try {
-      const token = await getToken();
+
+      console.log(
+        "🔄 Getting Clerk token for user data..."
+      );
+
+
+      const token =
+        await getToken();
+
+
+      console.log(
+        "CLERK TOKEN EXISTS:",
+        !!token
+      );
+
 
       if (!token) {
+
+        console.log(
+          "❌ TOKEN IS NULL"
+        );
+
         return;
+
       }
 
-      const { data } = await axios.get(
-        `${backendUrl}/api/users/user`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
 
-      if (data.success) {
-        setUserData(data.user);
-      }
-    } catch (error) {
+      const { data } =
+        await axios.get(
+
+          `${backendUrl}/api/users/user`,
+
+          {
+            headers: {
+              Authorization:
+                `Bearer ${token}`,
+            },
+          }
+
+        );
+
+
       console.log(
-        "User Data Error:",
-        error.response?.data ||
-        error.message
+        "USER API RESPONSE:",
+        data
       );
-    }
-  };
 
-
-  const fetchUserApplications = async () => {
-    try {
-      const token = await getToken();
-
-      if (!token) {
-        return;
-      }
-
-      const { data } = await axios.get(
-        `${backendUrl}/api/users/applications`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
 
       if (data.success) {
-        setUserApplications(data.applications || []);
-      }
-    } catch (error) {
-      console.log(
-        "Applications Error:",
-        error.response?.data ||
-        error.message
-      );
-    }
-  };
 
+        setUserData(
+          data.user
+        );
 
-  const fetchCompanyData = async () => {
-    try {
-      if (!companyToken) {
-        return;
-      }
-
-      const { data } = await axios.get(
-        `${backendUrl}/api/company/company`,
-        {
-          headers: {
-            token: companyToken,
-          },
-        }
-      );
-
-      if (data.success) {
-        setCompanyData(data.company);
       } else {
-        setCompanyToken(null);
-        setCompanyData(null);
-        localStorage.removeItem("companyToken");
+
+        console.log(
+          "❌ USER API FAILED:",
+          data.message
+        );
+
       }
+
     } catch (error) {
+
       console.log(
-        "Company Data Error:",
+        "❌ USER DATA ERROR:",
         error.response?.data ||
         error.message
       );
+
     }
+
   };
 
+
+  // ==========================================
+  // FETCH USER APPLICATIONS
+  // ==========================================
+
+  const fetchUserApplications =
+    async () => {
+
+      try {
+
+        console.log(
+          "🔄 Getting Clerk token for applications..."
+        );
+
+
+        const token =
+          await getToken();
+
+
+        console.log(
+          "CLERK TOKEN EXISTS FOR APPLICATIONS:",
+          !!token
+        );
+
+
+        if (!token) {
+
+          console.log(
+            "❌ TOKEN IS NULL"
+          );
+
+          return;
+
+        }
+
+
+        const { data } =
+          await axios.get(
+
+            `${backendUrl}/api/users/applications`,
+
+            {
+              headers: {
+                Authorization:
+                  `Bearer ${token}`,
+              },
+            }
+
+          );
+
+
+        console.log(
+          "APPLICATIONS API RESPONSE:",
+          data
+        );
+
+
+        if (data.success) {
+
+          setUserApplications(
+            data.applications || []
+          );
+
+        } else {
+
+          console.log(
+            "❌ APPLICATIONS API FAILED:",
+            data.message
+          );
+
+        }
+
+      } catch (error) {
+
+        console.log(
+          "❌ APPLICATIONS ERROR:",
+          error.response?.data ||
+          error.message
+        );
+
+      }
+
+    };
+
+
+  // ==========================================
+  // FETCH COMPANY DATA
+  // ==========================================
+
+  const fetchCompanyData =
+    async () => {
+
+      try {
+
+        if (!companyToken) {
+
+          return;
+
+        }
+
+
+        const { data } =
+          await axios.get(
+
+            `${backendUrl}/api/company/company`,
+
+            {
+              headers: {
+                token:
+                  companyToken,
+              },
+            }
+
+          );
+
+
+        console.log(
+          "COMPANY API RESPONSE:",
+          data
+        );
+
+
+        if (data.success) {
+
+          setCompanyData(
+            data.company
+          );
+
+        } else {
+
+          setCompanyToken(
+            null
+          );
+
+          setCompanyData(
+            null
+          );
+
+
+          localStorage.removeItem(
+            "companyToken"
+          );
+
+        }
+
+      } catch (error) {
+
+        console.log(
+          "❌ COMPANY DATA ERROR:",
+          error.response?.data ||
+          error.message
+        );
+
+      }
+
+    };
+
+
+  // ==========================================
+  // INITIAL LOAD
+  // ==========================================
 
   useEffect(() => {
+
     fetchJobs();
 
+
     const storedCompanyToken =
-      localStorage.getItem("companyToken");
+      localStorage.getItem(
+        "companyToken"
+      );
+
 
     if (storedCompanyToken) {
-      setCompanyToken(storedCompanyToken);
+
+      setCompanyToken(
+        storedCompanyToken
+      );
+
     }
+
   }, []);
 
 
+  // ==========================================
+  // FETCH COMPANY DATA
+  // ==========================================
+
   useEffect(() => {
+
     if (companyToken) {
+
       fetchCompanyData();
+
+    } else {
+
+      setCompanyData(
+        null
+      );
+
     }
+
   }, [companyToken]);
 
 
-  useEffect(() => {
-    if (isLoaded && user) {
-      fetchUserData();
-      fetchUserApplications();
-    } else if (isLoaded && !user) {
-      setUserData(null);
-      setUserApplications([]);
-    }
-  }, [user, isLoaded]);
+  // ==========================================
+  // FETCH USER DATA AFTER CLERK LOADS
+  // ==========================================
 
+  useEffect(() => {
+
+    console.log(
+      "CLERK STATUS:",
+      {
+        isLoaded,
+        isLoggedIn: !!user,
+      }
+    );
+
+
+    if (
+      isLoaded &&
+      user
+    ) {
+
+      fetchUserData();
+
+      fetchUserApplications();
+
+    }
+
+
+    if (
+      isLoaded &&
+      !user
+    ) {
+
+      setUserData(
+        null
+      );
+
+      setUserApplications(
+        []
+      );
+
+    }
+
+  }, [
+    user,
+    isLoaded
+  ]);
+
+
+  // ==========================================
+  // CONTEXT VALUE
+  // ==========================================
 
   const value = {
+
+    // Backend
     backendUrl,
 
+
+    // Jobs
     jobs,
     setJobs,
     fetchJobs,
     jobsLoading,
 
+
+    // User
     userData,
     setUserData,
     fetchUserData,
 
+
+    // Applications
     userApplications,
     setUserApplications,
     fetchUserApplications,
 
+
+    // Search
     searchFilter,
     setSearchFilter,
 
     isSearched,
     setIsSearched,
 
+
+    // Recruiter Login
     showRecruiterLogin,
     setShowRecruiterLogin,
 
+
+    // Company
     companyToken,
     setCompanyToken,
 
     companyData,
     setCompanyData,
+
+    fetchCompanyData,
+
   };
 
 
   return (
-    <AppContext.Provider value={value}>
+
+    <AppContext.Provider
+      value={value}
+    >
+
       {children}
+
     </AppContext.Provider>
+
   );
+
 };

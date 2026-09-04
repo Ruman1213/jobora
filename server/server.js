@@ -20,17 +20,20 @@ dotenv.config();
 
 const app = express();
 
+
 // ==============================
 // CONNECT DATABASE
 // ==============================
 
 await connectDB();
 
+
 // ==============================
 // CONNECT CLOUDINARY
 // ==============================
 
 await connectCloudinary();
+
 
 // ==============================
 // CORS
@@ -43,17 +46,34 @@ app.use(
   })
 );
 
+
+// ==============================
+// CLERK WEBHOOK
+// MUST BE BEFORE express.json()
+// ==============================
+
+app.post(
+  "/webhooks",
+  express.raw({
+    type: "application/json",
+  }),
+  clerkWebhooks
+);
+
+
 // ==============================
 // BODY PARSER
 // ==============================
 
 app.use(express.json());
 
+
 // ==============================
 // CLERK MIDDLEWARE
 // ==============================
 
 app.use(clerkMiddleware());
+
 
 // ==============================
 // TEST ROUTE
@@ -63,14 +83,9 @@ app.get("/", (req, res) => {
   res.send("API Working");
 });
 
-// ==============================
-// CLERK WEBHOOK
-// ==============================
-
-app.post("/webhooks", clerkWebhooks);
 
 // ==============================
-// ROUTES
+// API ROUTES
 // ==============================
 
 app.use("/api/company", companyRoutes);
@@ -79,11 +94,13 @@ app.use("/api/jobs", jobRoutes);
 
 app.use("/api/users", userRoutes);
 
+
 // ==============================
 // SENTRY ERROR HANDLER
 // ==============================
 
 Sentry.setupExpressErrorHandler(app);
+
 
 // ==============================
 // START SERVER
@@ -92,5 +109,7 @@ Sentry.setupExpressErrorHandler(app);
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+  console.log(
+    `Server is running on port ${PORT}`
+  );
 });
